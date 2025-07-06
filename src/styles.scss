@@ -1,0 +1,40 @@
+@use "tailwindcss";
+
+html,
+body {
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    font-size: medium;
+    height: 100dvh;
+    margin: 0;
+    overflow-x: hidden;
+    padding: 0;
+    text-align: justify;
+    width: 100dvw;
+}
+
+a:visited,
+a:link,
+a:any-link {
+    color: black;
+    text-decoration: none;
+}
+
+a:hover {
+    color: dodgerblue;
+    text-decoration: underline;
+}
+
+.symbols {
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24
+}
+
+// global mat-error in red
+mat-error,
+.mat-mdc-form-field-error {
+    color: var(--mat-sys-error);
+}

@@ -1,0 +1,15 @@
+@if(response.code===200 && response.error===null) {
+<div class="flex justify-center flex-col items-center flex-nowrap gap-4 w-full h-full">
+    <app-latex [content]="formatedFeasibility()" [inlined]="true" />
+    <div id="steps-container">
+        @for (step of response.steps; track $index) {
+        <div class="step">
+            <app-latex [content]="formatedStepTitle(step, $index)"></app-latex>
+            <app-latex [content]="displayStep(step, $index)" [inlined]="true" />
+        </div>
+        }
+    </div>
+</div>
+} @else {
+<p class="text-center">Une erreur est survenue{{response.error !== null ? ": " + response.error : "."}}</p>
+}

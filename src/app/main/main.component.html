@@ -1,0 +1,170 @@
+<mat-stepper [orientation]="(isMobile|async)?'vertical':'horizontal'" [linear]="true" #stepper class="min-h-full">
+    <mat-step [completed]="simplex.valid" state="math" label="Équation">
+        <form [formGroup]="simplex"
+            class="flex justify-start flex-col items-center flex-nowrap gap-4 overflow-y-hidden overflow-x-hidden min-h-full w-full">
+            <div class="flex flex-col items-center justify-center flex-nowrap gap-1">
+                <label for="input">Entrez un fichier <button [matMenuTriggerFor]="menu" class="format-infos">au bon
+                        format</button>, ou entrez les informations ci-dessous.</label>
+                <mat-menu #menu id="format-infos">
+                    <p>
+                        TODO something for later:
+                        https://stackoverflow.com/questions/53618333/how-to-open-and-close-angular-mat-menu-on-hover
+                    </p>
+                </mat-menu>
+                <button mat-raised-button (click)="input.click()">{{filename}}</button>
+                <input #input type="file" title="Entrez un fichier au bon format." name="input" id="input" accept=".txt"
+                    (change)="onFileChange($event)" class="hidden" />
+                @if (formInputFile.invalid) {
+                <mat-error class="text-red">{{fileErrorMessage()}}</mat-error>
+                }
+            </div>
+            <div class="flex flex-col items-center justify-center flex-nowrap gap-1 w-full">
+                <div class="flex flex-col items-center justify-center flex-nowrap gap-1">
+                    <mat-label>Choisissez le type d'objectif:</mat-label>
+                    <mat-radio-group formControlName="toMaximise">
+                        @for (item of objectives; track $index) {
+                        <mat-radio-button [value]="item.value">{{item.name}}</mat-radio-button>
+                        }
+                    </mat-radio-group>
+                    <mat-slide-toggle labelPosition="before" formControlName="toInteger">Résolution en nombre
+                        entier</mat-slide-toggle>
+                </div>
+                <mat-form-field>
+                    <mat-label>Nombre de variables</mat-label>
+                    <input [formControl]="simplex.controls.n" matInput type="number" min="1" />
+                    @if (simplex.controls.n.invalid) {
+                    <mat-error class="text-red">{{MNErrorMessage(simplex.controls.n)}}</mat-error>
+                    }
+                </mat-form-field>
+                <mat-form-field>
+                    <mat-label>Nombre de constraintes</mat-label>
+                    <input [formControl]="simplex.controls.m" matInput type="number" min="1" />
+                    @if (simplex.controls.m.invalid) {
+                    <mat-error class="text-red">{{MNErrorMessage(simplex.controls.m)}}</mat-error>
+                    }
+                </mat-form-field>
+                <!-- show other inputs after we have choosen both m and n, since we need to resize them accordingly -->
+                @if (simplex.value.m !== undefined && simplex.value.m > 0 && simplex.value.n !== undefined &&
+                simplex.value.n >
+                0)
+                {
+                <section id="filling" class="flex flex-col items-center justify-center flex-nowrap gap-1">
+                    <div>
+                        <p>Fonction objective:</p>
+                        <div class="filling-container gap-1">
+                            @for (ctrl of simplex.controls.objective.controls; track $index) {
+                            @if ($index>0) {
+                            <mat-form-field>
+                                <mat-label>
+                                    <app-latex class="latex-label" [content]="coefName+'_{'+($index)+'}'"></app-latex>
+                                </mat-label>
+                                <input [formControl]="ctrl" matInput type="number">
+                                @if (ctrl.invalid) {
+                                <mat-error class="text-red text-center">{{simplexErrorMessage(ctrl)}}</mat-error>
+                                }
+                            </mat-form-field>
+                            <app-latex content="+"></app-latex>
+                            }
+                            }
+                            <mat-form-field>
+                                <mat-label>
+                                    <app-latex class="latex-label" [content]="objName+'_{0}'"></app-latex>
+                                </mat-label>
+                                <input [formControl]="simplex.controls.objective.at(0)" matInput type="number">
+                                @if (simplex.controls.objective.at(0).invalid) {
+                                <mat-error
+                                    class="text-red text-center">{{simplexErrorMessage(simplex.controls.objective.at(0))}}</mat-error>
+                                }
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    @for (constraintCtrl of simplex.controls.coefs.controls; track $index) {
+                    <div>
+                        <p>constrainte n°{{$index+1}}</p>
+                        <div class="filling-container gap-1">
+                            @for (ctrl of constraintCtrl.controls; track $index) {
+                            <mat-form-field>
+                                <mat-label>
+                                    <app-latex class="latex-label" [content]="varName+'_{'+($index+1)+'}'"></app-latex>
+                                </mat-label>
+                                <input [formControl]="ctrl" matInput type="number">
+                                @if (ctrl.invalid) {
+                                <mat-error class="text-red text-center">{{simplexErrorMessage(ctrl)}}</mat-error>
+                                }
+                            </mat-form-field>
+                            @if ($index
+                            < constraintCtrl.controls.length-1) { <app-latex content="+" />
+                            }
+                            }
+                            <app-latex [content]="getSign()"></app-latex>
+                            <mat-form-field>
+                                <mat-label>
+                                    <app-latex class="latex-label"
+                                        [content]="constName+'_{'+($index+1)+'}'"></app-latex>
+                                </mat-label>
+                                <input [formControl]="simplex.controls.constants.at($index)" matInput type="number">
+                                @if (simplex.controls.constants.at($index).invalid) {
+                                <mat-error
+                                    class="text-red text-center">{{simplexErrorMessage(simplex.controls.constants.at($index))}}</mat-error>
+                                }
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    }
+                </section>
+                @if (simplex.invalid) {
+                <mat-error class="text-red text-center">{{simplexErrorMessage()}}</mat-error>
+                }
+                }
+                <button mat-flat-button matStepperNext type="button" (click)="send()"
+                    [disabled]="!simplex.valid">Envoyer et
+                    résoudre</button>
+                <button mat-flat-button type="reset" (click)="reset(); stepper.reset()">Recommencer</button>
+            </div>
+            <!-- preview for better visualisation -->
+            @if (simplex.value.m !== undefined && simplex.value.m > 0 && simplex.value.n !== undefined &&
+            simplex.value.n >
+            0)
+            {
+            <section id="simplex-preview">
+                <h2>Prévisualisation du problème</h2>
+                <div class="container">
+                    <app-latex [content]="latex"></app-latex>
+                </div>
+            </section>
+            }
+        </form>
+        <!-- to speed up debugging -->
+        <!-- @if(simplexResponse!==null) {
+        <app-simplex-response [response]="simplexResponse" class="overflow-auto" />
+        } -->
+    </mat-step>
+    <mat-step [completed]="simplexResponse !== null && simplex.valid" state="solve" label="Résolution">
+        @if (simplexResponse!==null && simplex.valid) {
+        <app-simplex-response [response]="simplexResponse" class="overflow-auto" />
+        } @else {
+        <p>Calcul en cours...</p>
+        }
+    </mat-step>
+    @if (simplex.controls.toInteger.value) {
+    <mat-step [completed]="simplexResponse !== null && simplex.valid" state="primal_dual" label="Primal-Dual">
+        <p>You are now done.</p>
+    </mat-step>
+    }
+    <!-- overriding first icon -->
+    <ng-template matStepperIcon="math">
+        <mat-icon class="symbols">function</mat-icon>
+    </ng-template>
+    <!-- overriding second icon -->
+    <ng-template matStepperIcon="solve">
+        <mat-icon class="symbols">calculate</mat-icon>
+    </ng-template>
+    <!-- overriding third icon -->
+    <ng-template matStepperIcon="primal_dual">
+        <mat-icon class="symbols">decimal_decrease</mat-icon>
+    </ng-template>
+    <!-- overriding edit icon -->
+    <ng-template matStepperIcon="edit">
+        <mat-icon>visibility</mat-icon>
+    </ng-template>
+</mat-stepper>

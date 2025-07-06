@@ -1,0 +1,68 @@
+.mat-horizontal-stepper-wrapper {
+    height: 100%;
+}
+
+input[type=file] {
+    text-align: end;
+}
+
+p {
+    text-align: center;
+}
+
+// menu infos for the format
+.format-infos {
+    // text-decoration: dotted;
+    text-decoration: underline;
+    text-decoration-style: solid;
+    text-decoration-color: #000000a9;
+    text-decoration-thickness: from-font;
+}
+
+#format-infos {
+    color: black;
+}
+
+// zone for filling the equation
+#filling {
+    width: 100%;
+
+    >div {
+        width: 100%;
+    }
+
+    app-latex.latex-label {
+        display: inline-block;
+
+        // look outside angular encapsulation since it's in a component
+        ::ng-deep mjx-container {
+            margin: 0 !important;
+        }
+    }
+
+    .filling-container {
+        align-items: center;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+
+        mat-form-field {
+            max-width: max(60dvw, 180px);
+        }
+    }
+}
+
+// zone for the preview of the equation
+#simplex-preview {
+    .container {
+        max-height: 80dvh;
+        max-width: 80dvw;
+        overflow: auto;
+    }
+
+    h2 {
+        text-align: center;
+    }
+}

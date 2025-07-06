@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.5.3</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+
+    <organization>
+        <name>CY Tech</name>
+        <url>https://cytech.cyu.fr/</url>
+    </organization>
+
+	<groupId>optim</groupId>
+	<artifactId>optim</artifactId>
+	<version>0.0.1</version>
+	<name>optim</name>
+	<description>Backend for optim app</description>
+	<url/>
+
+	<licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>manual</distribution>
+        </license>
+	</licenses>
+
+	<developers>
+        <developer>
+            <id>hugolm</id>
+            <name>Hugo Léon Mérino</name>
+            <email>leon.merin@gmail.com</email>
+            <organization>CY Tech</organization>
+            <organizationUrl>https://cytech.cyu.fr/</organizationUrl>
+            <roles>
+                <role>owner</role>
+                <role>developer</role>
+            </roles>
+            <timezone>France/Paris</timezone>
+        </developer>
+        <developer>
+            <id>allcontributors</id>
+            <name>All Github contributors</name>
+            <url>https://github.com/ShadowoftheRedFox/simplex/graphs/contributors</url>
+        </developer>
+	</developers>
+        <!-- Feel free to add yourself if you contributed to the project! -->
+        <contributors>
+    </contributors>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/ShadowoftheRedFox/LogiCYm/issues</url>
+    </issueManagement>
+
+	<properties>
+		<java.version>21</java.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-math3</artifactId>
+			<version>3.6.1</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

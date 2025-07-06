@@ -1,0 +1,5 @@
+# If a temporary java file is needed for something,
+# put it here. It won't be added to git.
+
+**/*
+!.gitignore
