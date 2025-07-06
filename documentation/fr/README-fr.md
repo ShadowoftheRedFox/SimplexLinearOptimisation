@@ -3,7 +3,8 @@
 ![CYTech_Logo](https://upload.wikimedia.org/wikipedia/commons/4/4a/CY_Tech.png)
 
 ![GitHub problèmes ouverts](https://img.shields.io/github/issues-search?query=repo%3AShadowoftheRedFox%2FSimplex%20is%3Aopen%20is%3Aissue&label=Pobl%C3%A8mes%20ouverts&color=blue)
-![GitHub License](https://img.shields.io/github/license/ShadowoftheRedFox/Simplex?label=License)
+![License Github](https://img.shields.io/github/license/ShadowoftheRedFox/SimplexLinearOptimisation?label=License)
+
 
 Il s'agit d'un outil pédagogique créé pour [CY Tech](https://cytech.cyu.fr/). Il vise à résoudre des problèmes linéaires, principalement par la méthode du simplexe, et présente diverses informations utiles pour illustrer la méthode ou aider les étudiants.
 
