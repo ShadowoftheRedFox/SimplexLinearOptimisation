@@ -511,12 +511,26 @@ public class Fraction
         if (denominator.compareTo(BigInteger.ONE) == 0) {
             return ZERO;
         }
-        Fraction decimal = new Fraction(numerator.mod(denominator), denominator);
-        if (isPositive()) {
-            return decimal;
-        } else {
-            return decimal.subtract(ONE).negate();
-        }
+        return subtract(getWholePart());
+    }
+
+    /**
+     * Get the whole part of this fraction, in other words, get the maximum fraction
+     * that is an integer lower than this.
+     *
+     * @return The floor of this fraction.
+     */
+    public Fraction getWholePart() {
+        return new Fraction(numerator.subtract(numerator.mod(denominator)), denominator);
+    }
+
+    /**
+     * Get the minimum fraction that is an integer greater than this.
+     *
+     * @return The ceil of this fraction.
+     */
+    public Fraction getCeil() {
+        return getWholePart().add(1);
     }
 
     /**

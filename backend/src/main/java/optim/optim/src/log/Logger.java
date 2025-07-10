@@ -262,7 +262,7 @@ public abstract class Logger {
      */
     public static void debug(String message) {
         if (Config.Debugger_Enabled()) {
-            log(null, message, LoggerStream.OUT);
+            debug("DEBUG", message);
         }
     }
 
@@ -277,7 +277,7 @@ public abstract class Logger {
     @SuppressWarnings("rawtypes")
     public static void debug(String message, LoggerOption... options) {
         if (Config.Debugger_Enabled()) {
-            log(null, message, options);
+            log("DEBUG", message, options);
         }
     }
 
@@ -290,7 +290,10 @@ public abstract class Logger {
      */
     public static void debug(String prefix, String message) {
         if (Config.Debugger_Enabled()) {
-            log(prefix, message, LoggerStream.OUT);
+            log(prefix, message, LoggerStream.OUT,
+                    LoggerColor.RED,
+                    LoggerStyle.UNDERLINE,
+                    LoggerStyle.BOLD);
         }
     }
 
@@ -370,8 +373,10 @@ public abstract class Logger {
         if (table == null) {
             trace("Table is null", debugOnly);
         } else {
-            String message = "Pivoting col " + inCol + " with row " + outRow +
-                    "\nTable: " + table.getWidth() + "x" + table.getHeight() +
+            String message = (inCol != null || outRow != null
+                    ? "Pivoting col " + inCol + " with row " + outRow + "\n"
+                    : "") +
+                    "Table: " + table.getWidth() + "x" + table.getHeight() +
                     " | Basic: " + table.getBasicVariables() + "\n";
 
             message += alignTable(table.getSimplexTable());

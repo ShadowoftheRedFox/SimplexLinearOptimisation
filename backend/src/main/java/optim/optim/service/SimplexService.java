@@ -213,10 +213,16 @@ public class SimplexService {
         } catch (NoFeasibleSolutionException nfse) {
             // handle not feasible
             Logger.trace(nfse.getMessage() + " (origin: " + nfse.getStackTrace()[0] + ")", false);
+            if (Config.Debugger_Enabled()) {
+                nfse.printStackTrace();
+            }
             res.feasibility = Feasibility.INFEASIBLE;
         } catch (UnboundedSolutionException use) {
             // handle unbounded
             Logger.trace(use.getMessage() + " (origin: " + use.getStackTrace()[0] + ")", false);
+            if (Config.Debugger_Enabled()) {
+                use.printStackTrace();
+            }
             res.feasibility = Feasibility.UNBOUNDED;
         } catch (TooManyIterationsException tmie) {
             // handle the error

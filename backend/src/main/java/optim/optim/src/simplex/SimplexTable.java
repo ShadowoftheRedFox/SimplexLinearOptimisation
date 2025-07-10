@@ -15,7 +15,6 @@ import org.apache.commons.math3.exception.util.LocalizedFormats;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.optim.linear.NoFeasibleSolutionException;
 import org.apache.commons.math3.optim.linear.Relationship;
-import org.apache.commons.math3.optim.linear.UnboundedSolutionException;
 
 import optim.optim.src.error.MalformedConstraintError;
 import optim.optim.src.log.Logger;
@@ -94,6 +93,9 @@ public class SimplexTable {
 
     /** Number of slack variables. */
     private final int numSlackVariables;
+
+    /** To know if we are in phase 1 or not. */
+    private boolean isPhase1 = true;
 
     /** Maps basic variables row they are basic in to the variable column. */
     private HashMap<Integer, Integer> basicMap;
@@ -206,6 +208,9 @@ public class SimplexTable {
             }
         }
 
+        // we created a new matrix from scratch, it's in phase 1
+        isPhase1 = true;
+
         return matrix;
     }
 
@@ -233,11 +238,12 @@ public class SimplexTable {
         columnLabels.add(OBJECTIVE_FUNCTION);
         // lambda
         columnLabels.add(LAMBDA);
+        // decision and slack, starting at indice 1
         for (int i = 0; i < getNumDecisionVariables(); i++) {
-            columnLabels.add(DECISION_VARIABLE + i);
+            columnLabels.add(DECISION_VARIABLE + (i + 1));
         }
         for (int i = 0; i < getNumSlackVariables(); i++) {
-            columnLabels.add(SLACK_VARIABLE + i);
+            columnLabels.add(SLACK_VARIABLE + (i + 1));
         }
         columnLabels = Collections.unmodifiableList(columnLabels);
     }
@@ -297,8 +303,10 @@ public class SimplexTable {
      *
      * @param constraint    The new constraint.
      * @param isPreformated If the contraint is preformated. A preformated
-     *                      constraint has a lenght of the current
-     *                      {@link #getWidth()}, and will not be edited.
+     *                      constraint has a length of the current
+     *                      {@link #getWidth()}, all coefficient are expressed in
+     *                      terms of non-base variables, and it will directly be
+     *                      inserted inside the new table.
      * @throws NullPointerException       if the given constraint is null.
      * @throws IllegalCallerException     if the table is not optimal or is in phase
      *                                    1.
@@ -339,9 +347,30 @@ public class SimplexTable {
                 throw new MalformedConstraintError(
                         "expected last coefficient to be 1, because this constraint is preformated and is supposed to be basic");
             }
+            // if preformated, all coefficients on a basic column must be 0 (except the last
+            // one, checked previously)
+            // DEBUG full 0 constraint keeps being added, throw if it is
+            boolean fullZero = true;
+            for (int i = 0; i < constraint.getCoefficients().length - 1; i++) {
+                if (isBasicCol(i + 1) && !constraint.getCoefficients()[i].isZero()) {
+                    throw new MalformedConstraintError(
+                            "expected coefficient " + i + " to be 0, because this column is basic");
+                }
+                if (fullZero && !constraint.getCoefficients()[i].isZero()) {
+                    fullZero = false;
+                }
+                // DEBUG throw if bigint gets too big
+                if (constraint.getCoefficients()[i].getNumerator().bitLength() >= 60) {
+                    throw new MalformedConstraintError("coefficient too big: " + constraint.getCoefficients()[i]);
+                }
+            }
+            if (fullZero) {
+                throw new MalformedConstraintError("empty constraint (full 0)");
+            }
         }
 
-        Logger.info("new constraint: " + Arrays.toString(constraint.getCoefficients()) +
+        Logger.info("new constraint: " +
+                Arrays.toString(constraint.getCoefficients()) +
                 " " + constraint.getRelationship().name() +
                 " " + constraint.getValue(), false);
 
@@ -368,18 +397,18 @@ public class SimplexTable {
 
         // the new constraint line for this new variable
         Fraction[] line = new Fraction[newWidth];
-
         line[0] = constraint.getValue();
+
+        // TODO rewrite the constraint depending on non basic variables
         if (isPreformated) {
             for (int i = 0; i < newWidth - 1; i++) {
-                line[i + getColOffset()] = constraint.getCoefficients()[i];
+                line[i + 1] = constraint.getCoefficients()[i];
             }
         } else {
-            // TODO rewrite the constraint depending on non basic vbariables
             for (int i = 0; i < getNumDecisionVariables(); i++) {
-                line[i + getColOffset()] = constraint.getCoefficients()[i];
+                line[i + 1] = constraint.getCoefficients()[i];
             }
-            for (int i = getNumDecisionVariables() + getColOffset(); i < newWidth - 1; i++) {
+            for (int i = getNumDecisionVariables() + 1; i < newWidth - 1; i++) {
                 line[i] = Fraction.ZERO;
             }
             // since we add this new constraint as basic
@@ -414,12 +443,20 @@ public class SimplexTable {
         Fraction sum = constraint.getValue();
         for (int i = 0; i < getNumDecisionVariables(); i++) {
             if (!isBasicCol(i)) {
-                sum = sum.subtract(getEntry(0, getColOffset() + i).multiply(constraint.getCoefficients()[i]));
+                sum = sum.subtract(getEntry(0, 1 + i).multiply(constraint.getCoefficients()[i]));
                 if (sum.isNegative()) {
                     satisfied = false;
                     break;
                 }
             }
+        }
+
+        // TODO for satisfied, doesn't it resumes to check if RHS is negative? to test
+
+        if (!satisfied) {
+            Logger.debug("Satisfaction", "New constraint not satisfied, RHS value: " + line[0]);
+        } else if (line[0].isNegative()) {
+            Logger.debug("Satisfaction", "New constraint satisfied, but RHS value negative: " + line[0]);
         }
 
         // and if yes, check if the table is optimal
@@ -432,47 +469,58 @@ public class SimplexTable {
         // we force the entry of our new variable
         // for the leaving, we get the minimum ratio between our new variable row and
         // the objective row, to stay in the constraints
+        // (also make sure to get the first minimal ratio is there are more than one)
 
-        int pivotRow = -1;
+        // on the new constraint row, we search a negative coefficients
+        // if none exists, the new constraint is empty, thus infeasible
+        // otherwise, we find the minimum ratio objective live coefficient divided by
+        // new consraint coefficient
+        int pivotCol = -1;
         Fraction minPivot = null;
-        for (int i = 1; i < newWidth; i++) {
-            if (isBasicCol(i)) {
-                continue;
-            }
-
+        for (int i = 1; i < newWidth - 1; i++) {
             final Fraction entry = getEntry(newHeight - 1, i);
-            // can't divide by 0, for the future operation
-            if (entry.isZero()) {
+            // can only accept strictly negative values
+            if (entry.isZero() || entry.isPositive()) {
                 continue;
             }
 
+            // take the laowest ratio, even negative ones
             final Fraction objectiveRowValue = getEntry(0, i);
-            // we can't take 0 from a netagive entry
-            if (objectiveRowValue.isZero() && entry.isNegative()) {
-                continue;
-            }
             final Fraction ratio = objectiveRowValue.divide(entry);
-            // invalid sign
-            if (ratio.isNegative()) {
-                continue;
-            }
 
-            if (pivotRow == -1 || ratio.compareTo(minPivot) == -1) {
+            if (pivotCol == -1 || ratio.compareTo(minPivot) == -1) {
                 minPivot = ratio;
-                pivotRow = i;
-                // we can't find lower than 0
-                if (ratio.isZero()) {
-                    break;
-                }
+                pivotCol = i;
             }
         }
 
-        // TODO truly unbounded or unfeasible?
-        if (pivotRow == -1) {
-            throw new UnboundedSolutionException();
+        // no negative value on the constraint coefficient
+        if (pivotCol == -1) {
+            // DEBUG what if we just ends?
+            Logger.debug("Primal/Dual", "not pivot col found");
+            return;
+            // throw new NoFeasibleSolutionException();
         }
 
-        performDualRowOperations(newHeight - 1, pivotRow);
+        // try {
+        // performDualRowOperations(newHeight - 1, pivotRow);
+        performRowOperations(pivotCol, newHeight - 1);
+        // } catch (OutOfRangeException ore) {
+        // Logger.debugTable(this, false);
+        // ore.printStackTrace();
+        // }
+
+        /**
+         * TODO what's happening:
+         * the new integer constraint MUST BE non basic, so not a 1 anymore last col,
+         * but a 0 OR IS IT? two things tells different things, I DONT KNOW ANYMORE,
+         * FUCK IT, LOOK A VIDEO ONLINE OR SOMETHING
+         *
+         * problem, we add a row, so we need a new basic var too, so what do we do??????
+         *
+         * seems like it's at this point we do the primal/dual to force something, but
+         * it's not clear
+         */
     }
 
     /**
@@ -563,7 +611,7 @@ public class SimplexTable {
 
         table = matrix;
         // since L has been removed, we need to move each value of the basic map to the
-        // left (-1), as well as the same for the invertedBasicMap, but for the keys
+        // left (-1), as well as the same for the invertedBasicMap, but for its keys
         basicMap.replaceAll((k, v) -> v - 1);
         HashMap<Integer, Integer> temp = new HashMap<Integer, Integer>();
         invertedBasicMap.forEach((k, v) -> {
@@ -575,6 +623,9 @@ public class SimplexTable {
         ArrayList<String> labels = new ArrayList<>(columnLabels);
         labels.remove(LAMBDA);
         columnLabels = Collections.unmodifiableList(labels);
+
+        // switch to phase 2
+        isPhase1 = false;
     }
 
     /**
@@ -586,11 +637,15 @@ public class SimplexTable {
      */
     public void addIntegerConstraint(int row) {
         MatrixUtils.checkRowIndex(table, row);
-        // check if the given row is basic, and is a slack variable
-        if (!isBasicRow(row)) {
+        // check if the given row is basic, or teh objective function line
+        if (!isBasicRow(row) || (row == 0 && !getEntry(0, 0).isInteger())) {
             throw new IllegalArgumentException("Given row is not basic: " + row);
         }
 
+        Logger.debug("DEBUG",
+                "New integer constraint from row " + row + " (" + columnLabels.get(getBasicVariableCol(row)) + ")");
+
+        // create the new variable label with the correct indice
         final String integerConstraintLabel = INTEGER_CONSTRAINT
                 // current table width
                 + (getWidth() -
@@ -617,16 +672,27 @@ public class SimplexTable {
         // TODO multiply the whole constraint with an integer to make it stronger
         // from "Strengthening Chvátal–Gomory cuts" by Adam N. Letchforda, Andrea Lodi
 
-        // get the last place as 1, since this new variable is basic
+        // get the last col as 1, since this new variable is basic on the last row and
+        // last col (it's future table position)
         constraint[newWidth - 2] = Fraction.ONE;
 
         // for each non basic variables, get the negated decimal parts
+        // if the constraint it only made of zero, that means we can't add a cut, and
+        // the problem is unfeasible
+        boolean fullZero = true;
         for (int i = 1; i < newWidth - 1; i++) {
             if (!isBasicCol(i)) {
                 constraint[i - 1] = getEntry(row, i).getDecimalPart().negate();
+                if (fullZero && !constraint[i - 1].isZero()) {
+                    fullZero = false;
+                }
             } else {
                 constraint[i - 1] = Fraction.ZERO;
             }
+        }
+
+        if (fullZero) {
+            throw new NoFeasibleSolutionException();
         }
 
         addConstraint(new Constraint(constraint, Relationship.LEQ, value), true);
@@ -636,7 +702,7 @@ public class SimplexTable {
      * Given a column and a row, the table will perfom the simplex operation, which
      * is to get the value where the column and the row intersect, called the pivot.
      * Then divide the row by the pivot value. And then substract every row until
-     * the pivot column is filled with 0.
+     * the pivot column is filled with 0, except his own line, where it is 1.
      *
      * @param pivotCol The pivot column, or the entering variable.
      * @param pivotRow The pivot row, or the leaving variable.
@@ -942,8 +1008,7 @@ public class SimplexTable {
      * @return True if the table is in phase 1, false otherwise.
      */
     public final boolean isPhase1() {
-        return table == null || // this check for internal call before we set the table
-                columnLabels.contains(LAMBDA);
+        return isPhase1;
     }
 
     /**

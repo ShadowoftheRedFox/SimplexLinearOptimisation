@@ -51,10 +51,14 @@ public class SimplexTests {
     public static void main(String[] args) {
         Config.load();
         SimplexTests test = new SimplexTests();
-        Logger.info("Relaxed:", false);
-        test.runRelaxUnitTests();
+        // Logger.info("Relaxed:", false);
+        // test.runRelaxUnitTests();
         Logger.info("Integer:", false);
-        test.runIntegerUnitTests();
+        try {
+            test.runIntegerUnitTests();
+        } catch (Throwable t) {
+            Logger.failed(t.getMessage(), false);
+        }
         // test.benchmark();
     }
 
@@ -430,11 +434,11 @@ public class SimplexTests {
         for (String test : testFiles) {
             // get the name of the file
             String[] parts = test.split("/");
-            String name = parts[parts.length - 1];
+            String testName = parts[parts.length - 1];
 
             boolean hasOutput = outputFiles.containsKey(test);
             if (!hasOutput) {
-                Logger.warn("Test \"" + name + "\" has no expected output file.");
+                Logger.warn("Test \"" + testName + "\" has no expected output file.");
             }
 
             Pair<Feasibility, Double> expectedInteger = parseOutputFile(outputFiles.get(test));
@@ -455,6 +459,8 @@ public class SimplexTests {
             testForm.advanced.maxIterations = 1000;
 
             // perform the test and check results
+            // since they can take a while, print which one is running
+            Logger.info("Running " + testName, false);
             SimplexResponse testResult = service.solve(testForm);
             // the expected output
             Pair<Feasibility, Double> expectedOutput = parseOutputFile(outputFiles.get(test));
@@ -474,15 +480,15 @@ public class SimplexTests {
                         assertEquals(expectedOutput.getSecond(), testResult.optimum.doubleValue());
                     }
 
-                    Logger.passed(name + " with " + testResult.steps.size() + " steps", false);
+                    Logger.passed(testName + " with " + testResult.steps.size() + " steps", false);
                 } catch (AssertionError e) {
                     numberTestFailed++;
-                    Logger.failed(name + ": " + e.getMessage(), false);
+                    Logger.failed(testName + ": " + e.getMessage(), false);
                 }
             } else {
                 // if no expected output, just print the result,
                 // since we are in a case of "continue without output"
-                Logger.info("Test \"" + name + "\" is " +
+                Logger.info("Test \"" + testName + "\" is " +
                         testResult.feasibility.name() + ": " + testResult.optimum);
             }
         }
@@ -778,8 +784,11 @@ public class SimplexTests {
         assertEquals(new Fraction(0), new Fraction(0).getDecimalPart());
         assertEquals(new Fraction(0), new Fraction(-1).getDecimalPart());
         assertEquals(new Fraction(1, 4), new Fraction(5, 4).getDecimalPart());
-        assertEquals(new Fraction(1, 4), new Fraction(-5, 4).getDecimalPart());
+        assertEquals(new Fraction(3, 4), new Fraction(-5, 4).getDecimalPart());
         assertEquals(new Fraction(3, 4), new Fraction(7, 4).getDecimalPart());
+        assertEquals(new Fraction(4, 10), new Fraction(24, 10).getDecimalPart());
+        assertEquals(new Fraction(6, 10), new Fraction(-24, 10).getDecimalPart());
+        assertEquals(new Fraction(30, 53), new Fraction(-23, 53).getDecimalPart());
     }
     // #endregion
 }

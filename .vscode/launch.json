@@ -7,7 +7,7 @@
             "name": "SimplexTests",
             "request": "launch",
             "mainClass": "simplex.simplex.SimplexTests",
-            "projectName": "optim",
+            "projectName": "optim"
         },
         {
             "type": "java",

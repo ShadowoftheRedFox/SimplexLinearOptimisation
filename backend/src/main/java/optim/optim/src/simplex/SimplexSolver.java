@@ -26,8 +26,6 @@ import optim.optim.src.simplex.data.ObjectiveFunction;
 import optim.optim.src.simplex.data.PivotSelectionRule;
 import optim.optim.src.simplex.data.SimplexData;
 
-// TODO find worst case
-
 /**
  * This class enable to solve a linear problem that is the simplex. It keeps
  * track of each operations to show the step by step process. The value used are
@@ -120,6 +118,7 @@ public class SimplexSolver {
      * Reset the iteration incrementor with the given maximum iteration.
      */
     private void resetIterations() {
+        consecutiveDegenerateThreshold = maxIterations / 2;
         this.iterations = Incrementor.create()
                 .withStart(0)
                 .withIncrement(1)
@@ -216,8 +215,11 @@ public class SimplexSolver {
 
     /**
      * Returns the pair column/row of the pivot. It selects the lowest positive
-     * ration, including negative objective line values, contrary to
+     * ratio, including negative objective line values, contrary to
      * {@link #getPivotColumn(SimplexTable)}.
+     *
+     * TODO implement in the doIteration if it's somehtow better than the lassic
+     * one, but keep the TODO inside this method
      *
      * @param table The simplex table before the iteration.
      * @return Pair column/row giving the pivot for this iteration.
@@ -296,7 +298,9 @@ public class SimplexSolver {
             // we found multiple times the same ratio
             // we are at a degenerated edge
             // TODO optimization? like a shake of those points
-            Logger.warn("degenerate point");
+            if ((consecutiveDegenerate - 1) % (consecutiveDegenerateThreshold / 20 + 1) == 0) {
+                Logger.warn("degenerate point");
+            }
 
             // we apply Bland's rule to prevent cycling:
             // we take the row with the corresponding basic variable that has the smallest
@@ -451,14 +455,14 @@ public class SimplexSolver {
         Integer pivotRow = null;
         // solving the integer problem includes checking the objective line values,
         // including negatives values.
-        if (solvingInteger) {
-            Pair<Integer, Integer> pivot = getIntegerPivot(table);
-            pivotCol = pivot.getFirst();
-            pivotRow = pivot.getSecond();
-        } else {
-            pivotCol = getPivotColumn(table);
-            pivotRow = getPivotRow(table, pivotCol);
-        }
+        // if (solvingInteger) {
+        // Pair<Integer, Integer> pivot = getIntegerPivot(table);
+        // pivotCol = pivot.getFirst();
+        // pivotRow = pivot.getSecond();
+        // } else {
+        pivotCol = getPivotColumn(table);
+        pivotRow = getPivotRow(table, pivotCol);
+        // }
 
         if (pivotRow == null) {
             // add a step
@@ -542,44 +546,49 @@ public class SimplexSolver {
 
         // check if integer, if not, continue
         while (getIntegerSolution(table) == null) {
+            Logger.info("New integer step:");
+            Logger.debugTable(table);
+
             iterations.increment();
 
             // add constraint to table depending on the method
             if (integerMethod == IntegerMethod.GOMORY) {
                 int maxRow = 0;
                 Fraction max = Fraction.ZERO;
-                // we loop through each basic variables
-                for (int i = table.getColOffset(); i < table.getWidth(); i++) {
-                    // if a variable is basic, get the maximal decimal parts of the variables
-                    if (table.isBasicCol(i)) {
-                        final int row = table.getBasicVariableRow(i);
-                        final Fraction entry = table.getEntry(row, 0).getDecimalPart();
-                        if (entry.compareTo(max) == 1) {
-                            max = entry;
-                            maxRow = row;
-                        }
+                // we loop through each basic variables and get the maximal decimal parts of the
+                // variable RHS
+                for (int i = table.getRowOffset(); i < table.getHeight(); i++) {
+                    final Fraction entry = table.getEntry(i, 0).getDecimalPart();
+                    if (entry.compareTo(max) == 1) {
+                        max = entry;
+                        maxRow = i;
                     }
                 }
                 // if no not integer basic variable found, check if we can use the objective
-                // line, if not, somethings wrong BUG
-                if (maxRow == 0 && table.getEntry(0, 0).isInteger()) {
-                    throw new NoFeasibleSolutionException();
+                // line, if not, somethings wrong
+                if (maxRow == 0) {
+                    if (table.getEntry(0, 0).isInteger()) {
+                        throw new NoFeasibleSolutionException();
+                    } else {
+                        throw new UnsupportedOperationException("using objective as constraint not yet implemented");
+                    }
                 }
 
                 table.addIntegerConstraint(maxRow);
 
                 // add a step
                 resolutionSteps.addStep(null, maxRow, table);
+
+                if (!table.isOptimal()) {
+                    Logger.warn("not optimal after cut");
+                }
             } else {
                 // TODO implement other integer methods
                 throw new UnsupportedOperationException("IntegerMethod = " + integerMethod.name() + " not implemented");
             }
-
-            // run the simplex until optimal, for the integer method
-            while (!table.isOptimal()) {
-                doIteration(table);
-            }
         }
+        Logger.info("Last integer step:");
+        Logger.debugTable(table);
     }
 
     /**
@@ -587,13 +596,14 @@ public class SimplexSolver {
      * not integers, return null.
      *
      * @param table The table to get the solution from.
-     * @return A pair of the optimum and the
+     * @return A pair of the optimum and the solution point. Null if solution is not
+     *         fully integer.
      */
     protected PointFractionPair getIntegerSolution(final SimplexTable table) {
+        // check if the col contains only integer, otherwise return null
         for (int i = 0; i < table.getHeight(); i++) {
             final Fraction entry = table.getEntry(i, 0);
-            // check if the col contains only integer
-            if (entry.isInteger()) {
+            if (!entry.isInteger()) {
                 return null;
             }
         }
@@ -653,9 +663,9 @@ public class SimplexSolver {
     public PointFractionPair solve(SimplexData... datas)
             throws TooManyIterationsException,
             UnboundedSolutionException,
-            NoFeasibleSolutionException { // reset datas
-        linearConstraints = new ArrayList<Constraint>();
-        resetIterations();
+            NoFeasibleSolutionException {
+        // reset the class
+        reset();
 
         // parse provided datas
         parseDatas(datas);
@@ -693,10 +703,6 @@ public class SimplexSolver {
         if (integerMethod != IntegerMethod.NONE) {
             Logger.trace("Solving integer: " + integerMethod.name());
             solveInteger(table);
-            // DEBUG usefull?
-            if (getIntegerSolution(table) == null) {
-                throw new UnboundedSolutionException();
-            }
         } else {
             Logger.info("Not solving integer");
         }
@@ -802,5 +808,20 @@ public class SimplexSolver {
     public SimplexResponse setResolutionSteps(SimplexResponse steps) {
         this.resolutionSteps = (steps == null ? new SimplexResponse() : steps);
         return this.resolutionSteps;
+    }
+
+    /**
+     * Reset the class to start anew.
+     */
+    public void reset() {
+        linearConstraints = new ArrayList<Constraint>();
+        // max iteration is not reset because it has it's own setter
+        resetIterations();
+        solvingInteger = false;
+        pivotSelectionRule = defaultPivotRule;
+        objectiveFunction = null;
+        nonNegative = defaultNonNegative;
+        goal = defaultGoal;
+        integerMethod = defaultIntgerMethod;
     }
 }

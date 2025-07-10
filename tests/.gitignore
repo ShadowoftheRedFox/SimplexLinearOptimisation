@@ -1,0 +1,6 @@
+*/**
+!README.md
+!man.txt
+!man2.txt
+!.gitignore
+!tests.zip
